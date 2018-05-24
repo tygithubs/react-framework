@@ -5,17 +5,18 @@ const axios = require('axios')
 const webpack = require('webpack')
 // 第三方fs模块，api同node一致，不过是将内容写进内存 -快速
 const MemoryFs = require('memory-fs')
-const ReactDomServer = require('react-dom/server')
 const path = require('path')
 // 静态文件代理 为了publicPath与热更新
 const proxy = require('http-proxy-middleware')
+
+const serverRender = require('./server-render')
 
 const serverConfig = require('../../build/webpack.config.server')
 
 // 使用http请求去读取webpack-dev-server中的模板[所以依赖npm run dev:client 热更新也依赖 :p]
 const getTemplate = () => {
     return new Promise((resolve, reject) => {
-        axios.get('http://localhost:8888/public/index.html')
+        axios.get('http://localhost:8888/public/server.ejs')
         .then(res => {
             resolve(res.data)
         })
@@ -24,14 +25,29 @@ const getTemplate = () => {
 }
 
 // hack 将字符串转为模块 参考：http://www.ruanyifeng.com/blog/2015/05/require.html获取module的构造函数
-const Module = module.constructor;
+// const Module = module.constructor
+const NativeModule = require('module')
+const vm = require('vm')
 
-const mfs = new MemoryFs();
+const getModuleFromString = (bundle, filename) => {
+    const m = { exports: {} }
+    // 包装代码结构为`{function(exports, require, module, filename, dirname){ ...bundle code }}`
+    const wrapper = NativeModule.wrap(bundle)
+    const script = new vm.Script(wrapper, {
+        filename: filename,
+        displayErrors: true
+    })
+    const result = script.runInThisContext()
+    result.call(m.exports, m.exports, require, m)
+    return m
+}
+
+const mfs = new MemoryFs()
 // 启动webpack compiler
-const serverCompiler = webpack(serverConfig);
+const serverCompiler = webpack(serverConfig)
 // webpack提供给我们的配置项，此处将其配置为 通过mfs进行读写（内存）
-serverCompiler.outputFileSystem = mfs;
-let serverBundle;
+serverCompiler.outputFileSystem = mfs
+let serverBundle
 // 监听entry处的文件是否有变动 若有变动重新打包
 serverCompiler.watch({}, (err, stats) => {
     if (err) throw err
@@ -47,11 +63,12 @@ serverCompiler.watch({}, (err, stats) => {
     // 获取打包完成的js文件（注：文件是在内存中而非硬盘中，类比webpack-dev-server的文件）此时获得的是字符串，并非可执行的js，我们需要进行转换
     const bundle = mfs.readFileSync(bundlePath, 'utf-8')
     // 创建一个空模块
-    const m = new Module()
+    // const m = new Module()
     // 编译字符串 要指定名字
-    m._compile(bundle, 'server-entry.js')
+    // m._compile(bundle, 'server-entry.js')
     // 暴露出去 .default : require => es6 module
-    serverBundle = m.exports.default
+    const m = getModuleFromString(bundle, 'server-entry.js')
+    serverBundle = m.exports
 })
 
 module.exports = function (app) {
@@ -59,10 +76,12 @@ module.exports = function (app) {
     app.use('/public', proxy({
         target: 'http://localhost:8888'
     }))
-    app.get('*', function (req, res) {
+    app.get('*', function (req, res, next) {
+        if (!serverBundle) {
+            return res.send('waiting for compile，refresh later');
+        }
         getTemplate().then(template => {
-            const content = ReactDomServer.renderToString(serverBundle)
-            res.send(template.replace('<!-- app -->', content))
-        })
+            return serverRender(serverBundle, template, req, res)
+        }).catch(next)
     })
 }

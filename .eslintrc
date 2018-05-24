@@ -1,7 +1,7 @@
 {
     "extends": "standard",
     "rules": {
-        "semi": [0],  //结尾分号
+        "semi": [0],
         "react/jsx-filename-extension": [0],
         "react/jsx-indent": [0],
         "indent": [0]

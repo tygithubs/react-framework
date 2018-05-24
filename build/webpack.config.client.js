@@ -19,6 +19,10 @@ const config = webpackMerge(baseConfig, {
     plugins: [
         new HtmlWebpackPlugin({
             template: path.join(__dirname, '../client/template.html')
+        }),
+        new HtmlWebpackPlugin({
+            template: '!!ejs-compiled-loader!' + path.join(__dirname, '../client/server.template.ejs'),
+            filename: 'server.ejs'
         })
     ]
 })
@@ -48,6 +52,10 @@ if (isDev) {
         // 解决刷新404问题（服务端没有前端路由指向的文件） 全都返回index.html
         historyApiFallback: {
             index: '/public/index.html'
+        },
+        // 接口代理
+        proxy: {
+            '/api': 'http://localhost:3333'
         }
     }
     config.plugins.push(new webpack.HotModuleReplacementPlugin())

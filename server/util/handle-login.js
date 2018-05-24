@@ -5,7 +5,7 @@ const baseUrl = 'http://cnodejs.org/api/v1'
 
 router.post('/login', function (req, res, next) {
     axios.post(`${baseUrl}/accesstoken`, {
-        accesstoken: req.body.accesstoken
+        accesstoken: req.body.accessToken
     })
     .then(resp => {
         if (resp.status === 200 && resp.data.success) {
@@ -21,11 +21,11 @@ router.post('/login', function (req, res, next) {
             })
         }
     })
-    .catach(err => {
+    .catch(err => {
         if (err.response) {
             res.json({
                 success: false,
-                data: err.response
+                data: err.response.data
             })
         } else {
             next(err)

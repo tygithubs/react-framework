@@ -1,14 +1,13 @@
 {
-    "parser": "babel-eslint", // 用babel工具解析js代码
+    "parser": "babel-eslint",
     "env": {
         "browser": true,
         "es6": true,
         "node": true,
         "commonjs": true
     },
-    // 设置解析器选项
     "parserOptions": {
-        "ecmaVersion": 6, // es版本
+        "ecmaVersion": 6,
         "sourceType": "module",
         "ecmaFeatures": {
             "jsx": true
@@ -16,7 +15,7 @@
     },
     "extends": "airbnb",
     "rules": {
-        "semi": [0],  // 结尾分号
+        "semi": [0],
         "react/jsx-filename-extension": [0],
         "react/jsx-indent": [0],
         "indent": [0],
